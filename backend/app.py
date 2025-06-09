@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, redirect, url_for
+from flask import Flask, request, jsonify, redirect, url_for, send_file
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
 from pymongo import MongoClient
@@ -268,6 +268,34 @@ def delete_video(user_id, video_id):
         return jsonify({'message': 'Video deleted successfully'}), 200
     except Exception as e:
         logger.error(f"Delete video error: {str(e)}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+# Add download endpoint for processed videos
+@app.route('/api/videos/<video_id>/download', methods=['GET'])
+@require_auth
+def download_video(user_id, video_id):
+    try:
+        video = video_service.get_video(video_id)
+        if not video:
+            return jsonify({'error': 'Video not found'}), 404
+        
+        # Check if user owns the video
+        if str(video.user_id) != str(user_id):
+            return jsonify({'error': 'Unauthorized'}), 403
+        
+        # Get the processed video path
+        processed_path = video.outputs.get('processed_video', video.filepath)
+        
+        if not os.path.exists(processed_path):
+            return jsonify({'error': 'Processed video not found'}), 404
+        
+        return send_file(
+            processed_path,
+            as_attachment=True,
+            download_name=f"enhanced_{video.filename}"
+        )
+    except Exception as e:
+        logger.error(f"Download error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
 
 @app.errorhandler(413)

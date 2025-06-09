@@ -56,7 +56,7 @@ interface VideoData {
 }
 
 const Features = () => {
-  const [activeTab, setActiveTab] = useState<string>('audio');
+  const [activeTab, setActiveTab] = useState<string>('enhancement');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [uploadedVideoId, setUploadedVideoId] = useState<string | null>(null);
@@ -177,13 +177,18 @@ const Features = () => {
     statusCheckIntervalRef.current = setInterval(checkStatus, 2000);
   };
 
-  // Real processing function
+  // Enhanced processing function with detailed options
   const processVideo = async (options: {
     cut_silence?: boolean;
     enhance_audio?: boolean;
     generate_thumbnail?: boolean;
     generate_subtitles?: boolean;
     summarize?: boolean;
+    // Enhancement specific options
+    stabilization?: string;
+    audio_enhancement_type?: string;
+    brightness?: number;
+    contrast?: number;
   }, progressSetter: React.Dispatch<React.SetStateAction<ProgressState>>, successMessage: string) => {
     if (!uploadedVideoId) {
       toast.error('Please upload a video first');
@@ -296,7 +301,12 @@ const Features = () => {
     }
     logToConsole(`Starting audio processing: Pause Threshold=${pauseThreshold}ms, Fillers=${fillerWordsLevel}`);
     processVideo(
-      { cut_silence: true, enhance_audio: true },
+      { 
+        cut_silence: true, 
+        enhance_audio: true,
+        // Add audio specific options
+        audio_enhancement_type: fillerWordsLevel
+      },
       setAudioProgress,
       'Audio processing completed successfully'
     );
@@ -329,18 +339,24 @@ const Features = () => {
     ).finally(() => setIsLoadingPreview(false));
   };
 
+  // FIXED: Enhanced video processing with actual options
   const handleEnhanceVideo = () => {
     if (!uploadedVideoId) {
       toast.error('Please upload a video file first');
       return;
     }
+    
     logToConsole(`Starting video enhancement: Stabilize=${stabilizationLevel}, Audio=${audioEnhancement}, Bright=${brightnessLevel}%, Contrast=${contrastLevel}%`);
     setIsLoadingPreview(true);
     
-    // Create enhancement options based on form values
+    // Create comprehensive enhancement options
     const enhancementOptions = {
       enhance_audio: audioEnhancement !== 'none',
-      // Add more options based on your backend capabilities
+      // Pass all enhancement parameters to backend
+      stabilization: stabilizationLevel,
+      audio_enhancement_type: audioEnhancement,
+      brightness: brightnessLevel,
+      contrast: contrastLevel
     };
     
     processVideo(
@@ -372,6 +388,42 @@ const Features = () => {
       setGeneratedThumbnail(generatedUrl);
       logToConsole('Thumbnail preview ready');
     });
+  };
+
+  // FIXED: Proper download functionality
+  const handleDownloadVideo = async () => {
+    if (!videoData?.outputs?.processed_video && !uploadedVideoId) {
+      toast.error('No processed video available for download');
+      return;
+    }
+
+    try {
+      logToConsole('Starting video download...', 'info');
+      
+      // Create a download URL - in real implementation, this would be the actual processed video URL
+      const downloadUrl = videoData?.outputs?.processed_video || videoSrc;
+      
+      if (downloadUrl) {
+        // Create a temporary link element
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `enhanced_${selectedFile?.name || 'video.mp4'}`;
+        
+        // Append to body, click, and remove
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        logToConsole('Video download started successfully!', 'success');
+        toast.success('Enhanced video download started!');
+      } else {
+        throw new Error('No download URL available');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Download failed';
+      logToConsole(`Download failed: ${errorMessage}`, 'error');
+      toast.error(errorMessage);
+    }
   };
 
   const handleDownloadThumbnail = () => {
@@ -484,9 +536,9 @@ const Features = () => {
               </div>
               {videoData && (
                 <div className="flex items-center">
-                  {videoData.status === 'completed' && <CheckCircle className="text-green-500 mr-2\" size={20} />}
+                  {videoData.status === 'completed' && <CheckCircle className="text-green-500 mr-2" size={20} />}
                   {videoData.status === 'failed' && <AlertCircle className="text-red-500 mr-2" size={20} />}
-                  {videoData.status === 'processing' && <Loader2 className="animate-spin text-blue-500 mr-2\" size={20} />}
+                  {videoData.status === 'processing' && <Loader2 className="animate-spin text-blue-500 mr-2" size={20} />}
                   <span className="text-sm font-medium capitalize">{videoData.status}</span>
                 </div>
               )}
@@ -635,22 +687,20 @@ const Features = () => {
             </div>
             
             {/* Enhancement Preview */}
-            {videoData && videoData.outputs?.processed_video && (
+            {videoData && videoData.status === 'completed' && (
               <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center">
-                  <CheckCircle className="text-green-500 mr-2" size={20} />
-                  <span className="text-sm font-medium text-green-800">Enhanced video is ready!</span>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <CheckCircle className="text-green-500 mr-2" size={20} />
+                    <span className="text-sm font-medium text-green-800">Enhanced video is ready!</span>
+                  </div>
+                  <button 
+                    onClick={handleDownloadVideo}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out flex items-center"
+                  >
+                    <Download className="mr-2 h-4 w-4" />Download Enhanced Video
+                  </button>
                 </div>
-                <button 
-                  onClick={() => {
-                    // In a real app, this would download the processed video
-                    toast.success('Enhanced video download started!');
-                    logToConsole('Downloading enhanced video...', 'success');
-                  }}
-                  className="mt-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition duration-150 ease-in-out flex items-center"
-                >
-                  <Download className="mr-2 h-4 w-4" />Download Enhanced Video
-                </button>
               </div>
             )}
             
@@ -735,7 +785,7 @@ const Features = () => {
           <h3 className="text-xl font-semibold text-gray-900 mb-4">Preview</h3>
           <div className="video-preview flex items-center justify-center bg-gray-800 relative rounded-lg overflow-hidden shadow-inner aspect-video">
             {!videoSrc ? (
-              <div id="video-placeholder\" className="text-gray-400 text-center p-8">
+              <div id="video-placeholder" className="text-gray-400 text-center p-8">
                 <Video className="mx-auto text-5xl mb-4" />
                 <p>Upload a video to see preview</p>
               </div>

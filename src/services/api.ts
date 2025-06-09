@@ -20,7 +20,12 @@ const videoOptionsSchema = z.object({
   enhance_audio: z.boolean().optional(),
   generate_thumbnail: z.boolean().optional(),
   generate_subtitles: z.boolean().optional(),
-  summarize: z.boolean().optional()
+  summarize: z.boolean().optional(),
+  // Enhancement specific options
+  stabilization: z.string().optional(),
+  audio_enhancement_type: z.string().optional(),
+  brightness: z.number().optional(),
+  contrast: z.number().optional()
 });
 
 export class ApiService {
@@ -122,6 +127,11 @@ export class ApiService {
     generate_thumbnail?: boolean;
     generate_subtitles?: boolean;
     summarize?: boolean;
+    // Enhancement specific options
+    stabilization?: string;
+    audio_enhancement_type?: string;
+    brightness?: number;
+    contrast?: number;
   }) {
     const validated = videoOptionsSchema.parse(options);
     return this.request(`/videos/${videoId}/process`, {
@@ -142,5 +152,21 @@ export class ApiService {
     return this.request(`/videos/${videoId}`, {
       method: 'DELETE'
     });
+  }
+
+  // Add method to download processed video
+  static async downloadVideo(videoId: string): Promise<Blob> {
+    const token = this.getToken();
+    const response = await fetch(`${API_URL}/videos/${videoId}/download`, {
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Download failed');
+    }
+
+    return response.blob();
   }
 }
