@@ -8,6 +8,7 @@ from datetime import datetime
 from dotenv import load_dotenv
 import logging
 import os
+from bson import ObjectId
 
 from services.auth_service import AuthService
 from services.video_service import VideoService
@@ -228,7 +229,23 @@ def get_video_status(user_id, video_id):
         video = video_service.get_video(video_id)
         if not video:
             return jsonify({'error': 'Video not found'}), 404
-        return jsonify(video), 200
+
+        # Convert custom Video object to dict
+        if hasattr(video, 'to_dict'):
+            video_dict = video.to_dict()
+        elif hasattr(video, '__dict__'):
+            video_dict = video.__dict__
+        else:
+            raise ValueError("Cannot serialize Video object")
+
+        # Clean up any non-serializable fields (e.g., ObjectId)
+        if '_id' in video_dict:
+            video_dict['_id'] = str(video_dict['_id'])
+        if 'user_id' in video_dict:
+            video_dict['user_id'] = str(video_dict['user_id'])
+
+        return jsonify(video_dict), 200
+
     except Exception as e:
         logger.error(f"Fetch video error: {str(e)}")
         return jsonify({'error': 'Internal server error'}), 500
