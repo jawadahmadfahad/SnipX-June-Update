@@ -536,9 +536,9 @@ const Features = () => {
               </div>
               {videoData && (
                 <div className="flex items-center">
-                  {videoData.status === 'completed' && <CheckCircle className="text-green-500 mr-2" size={20} />}
+                  {videoData.status === 'completed' && <CheckCircle className="text-green-500 mr-2\" size={20} />}
                   {videoData.status === 'failed' && <AlertCircle className="text-red-500 mr-2" size={20} />}
-                  {videoData.status === 'processing' && <Loader2 className="animate-spin text-blue-500 mr-2" size={20} />}
+                  {videoData.status === 'processing' && <Loader2 className="animate-spin text-blue-500 mr-2\" size={20} />}
                   <span className="text-sm font-medium capitalize">{videoData.status}</span>
                 </div>
               )}
@@ -785,7 +785,7 @@ const Features = () => {
           <h3 className="text-xl font-semibold text-gray-900 mb-4">Preview</h3>
           <div className="video-preview flex items-center justify-center bg-gray-800 relative rounded-lg overflow-hidden shadow-inner aspect-video">
             {!videoSrc ? (
-              <div id="video-placeholder" className="text-gray-400 text-center p-8">
+              <div id="video-placeholder\" className="text-gray-400 text-center p-8">
                 <Video className="mx-auto text-5xl mb-4" />
                 <p>Upload a video to see preview</p>
               </div>
