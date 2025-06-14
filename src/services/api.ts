@@ -25,7 +25,10 @@ const videoOptionsSchema = z.object({
   stabilization: z.string().optional(),
   audio_enhancement_type: z.string().optional(),
   brightness: z.number().optional(),
-  contrast: z.number().optional()
+  contrast: z.number().optional(),
+  // Subtitle specific options
+  subtitle_language: z.string().optional(),
+  subtitle_style: z.string().optional()
 });
 
 export class ApiService {
@@ -132,6 +135,9 @@ export class ApiService {
     audio_enhancement_type?: string;
     brightness?: number;
     contrast?: number;
+    // Subtitle specific options
+    subtitle_language?: string;
+    subtitle_style?: string;
   }) {
     const validated = videoOptionsSchema.parse(options);
     return this.request(`/videos/${videoId}/process`, {
