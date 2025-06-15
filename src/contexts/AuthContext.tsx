@@ -18,6 +18,7 @@ interface AuthContextType {
     lastName: string;
   }) => Promise<void>;
   logout: () => void;
+  setUser: (user: User | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -28,7 +29,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const token = ApiService.getToken();
     if (token) {
-      // TODO: Validate token and get user data
+      // For demo purposes, set a default user when token exists
+      setUser({ email: 'demo@snipx.com', firstName: 'Demo', lastName: 'User' });
     }
   }, []);
 
@@ -38,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(response.user);
     } catch (error) {
       console.error('Login failed:', error);
-      throw error; // Re-throw so UI can handle it
+      throw error;
     }
   };
 
@@ -63,7 +65,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isAuthenticated: !!user,
         login,
         register,
-        logout
+        logout,
+        setUser
       }}
     >
       {children}

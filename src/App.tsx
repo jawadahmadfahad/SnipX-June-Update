@@ -8,6 +8,7 @@ import Features from './pages/Features';
 import Technologies from './pages/Technologies';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import AuthCallback from './components/AuthCallback';
 import { useAuth } from './contexts/AuthContext';
 
 function App() {
@@ -15,12 +16,18 @@ function App() {
   const { isAuthenticated } = useAuth();
 
   return (
-    <Router>
+    <Router
+      future={{
+        v7_startTransition: true,
+        v7_relativeSplatPath: true
+      }}
+    >
       <div className="min-h-screen bg-gray-50 text-gray-900 flex flex-col">
         <Toaster position="top-right" />
         <Routes>
           <Route path="/login" element={!isAuthenticated ? <Login /> : <Navigate to="/editor" />} />
           <Route path="/signup" element={!isAuthenticated ? <Signup /> : <Navigate to="/editor" />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
           <Route
             path="*"
             element={

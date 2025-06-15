@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { Menu, X, Scissors } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Menu, X, Scissors, User, LogOut } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface NavbarProps {
   mobileMenuOpen: boolean;
@@ -9,6 +10,8 @@ interface NavbarProps {
 
 const Navbar = ({ mobileMenuOpen, setMobileMenuOpen }: NavbarProps) => {
   const [scrolled, setScrolled] = useState(false);
+  const { isAuthenticated, user, logout } = useAuth();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -22,6 +25,11 @@ const Navbar = ({ mobileMenuOpen, setMobileMenuOpen }: NavbarProps) => {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const handleLogout = () => {
+    logout();
+    navigate('/');
+  };
 
   return (
     <header 
@@ -50,12 +58,30 @@ const Navbar = ({ mobileMenuOpen, setMobileMenuOpen }: NavbarProps) => {
           </div>
           
           <div className="hidden md:flex items-center space-x-4">
-            <Link 
-              to="/login"
-              className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors"
-            >
-              Get Started
-            </Link>
+            {isAuthenticated ? (
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2 text-gray-700">
+                  <User size={20} />
+                  <span className="text-sm">
+                    {user?.firstName ? `${user.firstName} ${user.lastName}` : user?.email}
+                  </span>
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors"
+                >
+                  <LogOut size={16} />
+                  <span>Logout</span>
+                </button>
+              </div>
+            ) : (
+              <Link 
+                to="/login"
+                className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors"
+              >
+                Get Started
+              </Link>
+            )}
           </div>
           
           <button 
@@ -93,19 +119,31 @@ const Navbar = ({ mobileMenuOpen, setMobileMenuOpen }: NavbarProps) => {
               Editor
             </Link>
             <Link 
-              to="/options" 
+              to="/Features" 
               className="text-gray-700 hover:text-purple-600 transition-colors py-2"
               onClick={() => setMobileMenuOpen(false)}
             >
-              Options
+              Features
             </Link>
-            <Link 
-              to="/login"
-              className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors w-full text-center"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Get Started
-            </Link>
+            {isAuthenticated ? (
+              <button 
+                onClick={() => {
+                  handleLogout();
+                  setMobileMenuOpen(false);
+                }}
+                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors w-full text-center"
+              >
+                Logout
+              </button>
+            ) : (
+              <Link 
+                to="/login"
+                className="bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 transition-colors w-full text-center"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Get Started
+              </Link>
+            )}
           </nav>
         </div>
       )}
