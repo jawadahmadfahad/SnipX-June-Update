@@ -27,53 +27,75 @@ app = Flask(__name__)
 CORS(app, supports_credentials=True)
 
 # App secret
-app.config['SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')
+app.config['SECRET_KEY'] = os.getenv('JWT_SECRET_KEY', 'fallback-secret-key-for-development')
 app.config['MAX_CONTENT_LENGTH'] = int(os.getenv('MAX_CONTENT_LENGTH', 500 * 1024 * 1024))
 
-# MongoDB connection
+# MongoDB connection with fallback
 try:
-    client = MongoClient(os.getenv('MONGODB_URI'))
+    mongodb_uri = os.getenv('MONGODB_URI', 'mongodb://localhost:27017/snipx')
+    client = MongoClient(mongodb_uri, serverSelectionTimeoutMS=5000)
     db = client.snipx
+    # Test connection
     client.server_info()
     logger.info("✅ Connected to MongoDB")
+    mongodb_available = True
 except Exception as e:
-    logger.error(f"❌ MongoDB connection failed: {str(e)}")
-    raise
+    logger.warning(f"⚠️ MongoDB connection failed: {str(e)}")
+    logger.info("📝 Running in demo mode without database")
+    mongodb_available = False
+    db = None
 
-# Initialize services
-auth_service = AuthService(db)
-video_service = VideoService(db)
+# Initialize services only if MongoDB is available
+if mongodb_available:
+    auth_service = AuthService(db)
+    video_service = VideoService(db)
+else:
+    auth_service = None
+    video_service = None
 
-# OAuth setup
+# OAuth setup (only if credentials are provided)
 oauth = OAuth(app)
 
-oauth.register(
-    name='google',
-    client_id=os.getenv('GOOGLE_CLIENT_ID'),
-    client_secret=os.getenv('GOOGLE_CLIENT_SECRET'),
-    access_token_url='https://oauth2.googleapis.com/token',
-    authorize_url='https://accounts.google.com/o/oauth2/v2/auth',
-    client_kwargs={'scope': 'openid email profile'},
-    server_metadata_url='https://accounts.google.com/.well-known/openid-configuration'
-)
+google_client_id = os.getenv('GOOGLE_CLIENT_ID')
+google_client_secret = os.getenv('GOOGLE_CLIENT_SECRET')
 
-oauth.register(
-    name='facebook',
-    client_id=os.getenv('FACEBOOK_CLIENT_ID'),
-    client_secret=os.getenv('FACEBOOK_CLIENT_SECRET'),
-    access_token_url='https://graph.facebook.com/v14.0/oauth/access_token',
-    authorize_url='https://www.facebook.com/v14.0/dialog/oauth',
-    api_base_url='https://graph.facebook.com/v14.0/',
-    client_kwargs={'scope': 'email public_profile'},
-)
+if google_client_id and google_client_secret:
+    oauth.register(
+        name='google',
+        client_id=google_client_id,
+        client_secret=google_client_secret,
+        access_token_url='https://oauth2.googleapis.com/token',
+        authorize_url='https://accounts.google.com/o/oauth2/v2/auth',
+        client_kwargs={'scope': 'openid email profile'},
+        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration'
+    )
+
+facebook_client_id = os.getenv('FACEBOOK_CLIENT_ID')
+facebook_client_secret = os.getenv('FACEBOOK_CLIENT_SECRET')
+
+if facebook_client_id and facebook_client_secret:
+    oauth.register(
+        name='facebook',
+        client_id=facebook_client_id,
+        client_secret=facebook_client_secret,
+        access_token_url='https://graph.facebook.com/v14.0/oauth/access_token',
+        authorize_url='https://www.facebook.com/v14.0/dialog/oauth',
+        api_base_url='https://graph.facebook.com/v14.0/',
+        client_kwargs={'scope': 'email public_profile'},
+    )
 
 @app.route('/api/auth/google/login')
 def google_login():
+    if not mongodb_available:
+        return jsonify({'error': 'Database not available'}), 503
     redirect_uri = url_for('google_callback', _external=True)
     return oauth.google.authorize_redirect(redirect_uri)
 
 @app.route('/api/auth/google/callback')
 def google_callback():
+    if not mongodb_available:
+        return jsonify({'error': 'Database not available'}), 503
+    
     token = oauth.google.authorize_access_token()
     user_info = oauth.google.parse_id_token(token)
 
@@ -95,11 +117,16 @@ def google_callback():
 
 @app.route('/api/auth/facebook/login')
 def facebook_login():
+    if not mongodb_available:
+        return jsonify({'error': 'Database not available'}), 503
     redirect_uri = url_for('facebook_callback', _external=True)
     return oauth.facebook.authorize_redirect(redirect_uri)
 
 @app.route('/api/auth/facebook/callback')
 def facebook_callback():
+    if not mongodb_available:
+        return jsonify({'error': 'Database not available'}), 503
+    
     token = oauth.facebook.authorize_access_token()
     resp = oauth.facebook.get('me?fields=id,email,first_name,last_name')
     profile = resp.json()
@@ -122,6 +149,9 @@ def facebook_callback():
 
 def require_auth(f):
     def decorated(*args, **kwargs):
+        if not mongodb_available:
+            return jsonify({'error': 'Database not available'}), 503
+            
         auth_header = request.headers.get('Authorization')
         if not auth_header:
             return jsonify({'error': 'No authorization header'}), 401
@@ -138,6 +168,13 @@ def require_auth(f):
 
 @app.route('/api/test-db', methods=['GET'])
 def test_db():
+    if not mongodb_available:
+        return jsonify({
+            "status": "warning",
+            "message": "MongoDB not available - running in demo mode",
+            "mongodb_available": False
+        }), 200
+    
     try:
         test_result = db.users.find_one()
         if test_result and '_id' in test_result:
@@ -146,17 +183,22 @@ def test_db():
         return jsonify({
             "status": "success",
             "message": "MongoDB is connected",
+            "mongodb_available": True,
             "sample_user": test_result
         }), 200
     except Exception as e:
         return jsonify({
             "status": "error",
             "message": "MongoDB connection failed",
+            "mongodb_available": False,
             "error": str(e)
         }), 500
 
 @app.route('/api/auth/register', methods=['POST'])
 def register():
+    if not mongodb_available:
+        return jsonify({'error': 'Database not available - running in demo mode'}), 503
+    
     try:
         data = request.get_json()
         if not data:
@@ -180,6 +222,9 @@ def register():
 
 @app.route('/api/auth/login', methods=['POST'])
 def login():
+    if not mongodb_available:
+        return jsonify({'error': 'Database not available - running in demo mode'}), 503
+    
     try:
         data = request.get_json()
         if not data or not all(field in data for field in ['email', 'password']):
@@ -302,5 +347,22 @@ def download_video(user_id, video_id):
 def too_large(e):
     return jsonify({'error': 'File too large. Maximum size is 500MB'}), 413
 
+# Health check endpoint
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    return jsonify({
+        'status': 'healthy',
+        'mongodb_available': mongodb_available,
+        'timestamp': datetime.utcnow().isoformat()
+    }), 200
+
 if __name__ == '__main__':
+    # Create upload directory if it doesn't exist
+    upload_folder = os.getenv('UPLOAD_FOLDER', 'uploads')
+    os.makedirs(upload_folder, exist_ok=True)
+    
+    logger.info(f"🚀 Starting SnipX Backend Server")
+    logger.info(f"📁 Upload folder: {upload_folder}")
+    logger.info(f"🗄️ MongoDB available: {mongodb_available}")
+    
     app.run(debug=True, host='0.0.0.0', port=5001)

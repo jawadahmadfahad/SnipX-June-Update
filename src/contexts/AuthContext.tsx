@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { ApiService } from '../services/api';
+import toast from 'react-hot-toast';
 
 interface User {
   email: string;
@@ -19,6 +20,7 @@ interface AuthContextType {
   }) => Promise<void>;
   logout: () => void;
   setUser: (user: User | null) => void;
+  loginAsDemo: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -38,6 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await ApiService.login(email, password);
       setUser(response.user);
+      toast.success('Login successful!');
     } catch (error) {
       console.error('Login failed:', error);
       throw error;
@@ -56,6 +59,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     ApiService.clearToken();
     setUser(null);
+    toast.success('Logged out successfully');
+  };
+
+  // Demo login function for testing without backend
+  const loginAsDemo = () => {
+    const demoToken = 'demo-token-' + Date.now();
+    ApiService.setToken(demoToken);
+    setUser({ 
+      email: 'demo@snipx.com', 
+      firstName: 'Demo', 
+      lastName: 'User' 
+    });
+    toast.success('Logged in as demo user!');
   };
 
   return (
@@ -66,7 +82,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         register,
         logout,
-        setUser
+        setUser,
+        loginAsDemo
       }}
     >
       {children}
