@@ -12,10 +12,8 @@ import {
   Loader2,
   CheckCircle,
   AlertCircle,
-  LogIn,
 } from 'lucide-react';
 import { ApiService } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
 // Helper function to format file size
@@ -58,7 +56,6 @@ interface VideoData {
 }
 
 const Features = () => {
-  const { isAuthenticated, loginAsDemo } = useAuth();
   const [activeTab, setActiveTab] = useState<string>('enhancement');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
@@ -135,63 +132,8 @@ const Features = () => {
     }
   }, [brightnessLevel, contrastLevel]);
 
-  // Demo video upload function (simulates upload without backend)
-  const uploadVideoDemo = async (file: File) => {
-    setIsUploading(true);
-    setUploadProgress(0);
-    logToConsole(`Starting demo upload: ${file.name} (${formatFileSize(file.size)})`);
-
-    try {
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          const newProgress = Math.min(prev + Math.random() * 15, 95);
-          return newProgress;
-        });
-      }, 200);
-
-      // Simulate upload delay
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      clearInterval(progressInterval);
-      setUploadProgress(100);
-      
-      // Generate demo video ID
-      const demoVideoId = 'demo-video-' + Date.now();
-      setUploadedVideoId(demoVideoId);
-      
-      // Set demo video data
-      setVideoData({
-        id: demoVideoId,
-        filename: file.name,
-        status: 'uploaded',
-        metadata: {
-          duration: 120,
-          format: 'mp4',
-          resolution: '1920x1080',
-          fps: 30
-        },
-        outputs: {}
-      });
-      
-      logToConsole(`Demo upload successful! Video ID: ${demoVideoId}`, 'success');
-      toast.success('Video uploaded successfully (Demo Mode)');
-      
-    } catch (error) {
-      logToConsole(`Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-      toast.error('Upload failed. Please try again.');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
   // Real video upload function
   const uploadVideo = async (file: File) => {
-    if (!isAuthenticated) {
-      toast.error('Please login to upload videos');
-      return;
-    }
-
     setIsUploading(true);
     setUploadProgress(0);
     logToConsole(`Starting upload: ${file.name} (${formatFileSize(file.size)})`);
@@ -219,10 +161,7 @@ const Features = () => {
       }
     } catch (error) {
       logToConsole(`Upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`, 'error');
-      toast.error('Upload failed. Using demo mode instead.');
-      
-      // Fallback to demo mode
-      await uploadVideoDemo(file);
+      toast.error('Upload failed. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -257,42 +196,6 @@ const Features = () => {
     statusCheckIntervalRef.current = setInterval(checkStatus, 2000);
   };
 
-  // Demo processing function
-  const processVideoDemo = async (
-    options: any,
-    progressSetter: React.Dispatch<React.SetStateAction<ProgressState>>,
-    successMessage: string
-  ) => {
-    progressSetter({ visible: true, percentage: 0, status: 'Starting processing...' });
-    
-    try {
-      // Simulate progress updates
-      let progress = 0;
-      const progressInterval = setInterval(() => {
-        progress += Math.random() * 10;
-        if (progress >= 100) {
-          clearInterval(progressInterval);
-          progress = 100;
-          progressSetter(prev => ({ ...prev, percentage: 100, status: successMessage }));
-          logToConsole(successMessage + ' (Demo Mode)', 'success');
-          
-          // Update video data status
-          if (videoData) {
-            setVideoData(prev => prev ? { ...prev, status: 'completed' } : null);
-          }
-        } else {
-          progressSetter(prev => ({ ...prev, percentage: progress, status: `${Math.round(progress)}% - Processing...` }));
-        }
-      }, 300);
-      
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Processing failed';
-      logToConsole(`Processing failed: ${errorMessage}`, 'error');
-      progressSetter(prev => ({ ...prev, status: `Error: ${errorMessage}` }));
-      toast.error(errorMessage);
-    }
-  };
-
   // Enhanced processing function with detailed options
   const processVideo = async (options: {
     cut_silence?: boolean;
@@ -312,11 +215,6 @@ const Features = () => {
     if (!uploadedVideoId) {
       toast.error('Please upload a video first');
       return;
-    }
-
-    if (!isAuthenticated) {
-      // Use demo processing
-      return processVideoDemo(options, progressSetter, successMessage);
     }
 
     progressSetter({ visible: true, percentage: 0, status: 'Starting processing...' });
@@ -348,9 +246,6 @@ const Features = () => {
       logToConsole(`Processing failed: ${errorMessage}`, 'error');
       progressSetter(prev => ({ ...prev, status: `Error: ${errorMessage}` }));
       toast.error(errorMessage);
-      
-      // Fallback to demo processing
-      await processVideoDemo(options, progressSetter, successMessage);
     }
   };
 
@@ -387,12 +282,8 @@ const Features = () => {
       setContrastLevel(100);
       setPreviewFilters('');
       
-      // Upload the video (will use demo mode if not authenticated)
-      if (isAuthenticated) {
-        await uploadVideo(file);
-      } else {
-        await uploadVideoDemo(file);
-      }
+      // Upload the video
+      await uploadVideo(file);
     }
   };
 
@@ -728,52 +619,10 @@ Automatisch generiert von SnipX AI`
     { id: 'thumbnail', name: 'Thumbnail', icon: ImageIcon },
   ];
 
-  // Show login prompt if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="text-center bg-white rounded-lg shadow-lg p-12">
-          <LogIn className="mx-auto text-indigo-600 mb-6" size={64} />
-          <h2 className="text-3xl font-bold text-gray-800 mb-4">Login Required</h2>
-          <p className="text-gray-600 mb-8 max-w-md mx-auto">
-            Please login to access the full video editing features, or try our demo mode with limited functionality.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button
-              onClick={loginAsDemo}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-md font-medium transition-colors"
-            >
-              Try Demo Mode
-            </button>
-            <a
-              href="/login"
-              className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-3 rounded-md font-medium transition-colors"
-            >
-              Login / Signup
-            </a>
-          </div>
-          <p className="text-sm text-gray-500 mt-4">
-            Demo mode allows you to test features with sample data
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <div className="editor-container p-6 bg-white rounded-lg shadow-lg">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-800">AI Video Editor</h2>
-            <p className="text-gray-600 mt-1">Upload your video and let AI do the magic</p>
-          </div>
-          {!isAuthenticated && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2">
-              <span className="text-sm text-yellow-800 font-medium">Demo Mode</span>
-            </div>
-          )}
-        </div>
+        <h2 className="text-3xl font-bold text-gray-800 mb-6">AI Video Editor</h2>
 
         {/* Tabs */}
         <div className="border-b border-gray-200 mb-8">
